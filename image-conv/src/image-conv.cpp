@@ -42,6 +42,7 @@ class Timer {
 };
 
 static const char* inputImagePath = "./Images/cat.bmp";
+static const char* outputImagePath = "./cat-rot.bmp";
 
 #define IMAGE_SIZE (720*1080)
 constexpr size_t array_size = IMAGE_SIZE;
@@ -86,34 +87,40 @@ void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
         int row = item[0];
         int col = item[1];
 
+
         // Declare center point of the image to rotate about
         int x0, y0;
 
-        x0 = (int)ImageRows / 2;
-        y0 = (int)ImageCols / 2;
+        //x0 = (int)ImageRows / 2;
+        //y0 = (int)ImageCols / 2;
+	x0 = 0;
+	y0 = 0;
 
         // Declare initial points and new points
         int x1, x2, y1, y2;
+	// Declare the intermediete values
+	float x_rotated, y_rotated;
 
         // Get relative point for pixel this work item is handling
-        x1 = (float)row;
-        y1 = (float)col;
+        x1 = row;
+        y1 = col;
 
         // Calculate new values
-        x2 = cos_value * (x1 - x0) + sin_value * (y1 - y0);
-        y2 = (-1.0) * sin_value * (x1 - x0) + cos_value * (y1 - y0);
+        x_rotated = cos_value * (float)(x1 - x0) + sin_value * (float)(y1 - y0);
+        y_rotated = (-1.0) * sin_value * (float)(x1 - x0) + cos_value * (float)(y1 - y0);
+
+	// Cast the floats to ints
+	x2 = (int)x_rotated;
+	y2 = (int)y_rotated;
 
         // If the new rotated pixel is within bounds copy the pixel from src to new spot in dest
-        if (((int)x2 >= 0) &&
-            ((int)x2 < ImageCols) &&
-            ((int)y2 >= 0) &&
-            ((int)ImageRows)){
+        if ((x2 >= 0) &&
+            (x2 < ImageCols) &&
+            (y2 >= 0) &&
+            (y2 < ImageRows)){
           /* Write the new pixel value */
           dstPtr[ImageCols * y2 + x2] = srcPtr[ImageCols * row + col];
         }
-
-
-      }
     );
   });
 }
@@ -141,32 +148,11 @@ int main() {
 
   // Calculations for rotations
   // https://www.cplusplus.com/reference/cmath/cos/ 
-  int theta = 90;
+  int theta = 0;
   float cos_value, sin_value;
 
   cos_value = cos(theta * PI / 180.0);
   sin_value = sin(theta * PI / 180.0);
-
-
-
-#ifndef FPGA_PROFILE
-  // Query about the platform
-  unsigned number = 0;
-  auto myPlatforms = platform::get_platforms();
-  // loop through the platforms to poke into
-  for (auto &onePlatform : myPlatforms) {
-    std::cout << ++number << " found .." << std::endl << "Platform: " 
-    << onePlatform.get_info<info::platform::name>() <<std::endl;
-    // loop through the devices
-    auto myDevices = onePlatform.get_devices();
-    for (auto &oneDevice : myDevices) {
-      std::cout << "Device: " 
-      << oneDevice.get_info<info::device::name>() <<std::endl;
-    }
-  }
-  std::cout<<std::endl;
-#endif
-
 
 
   /* Read in the BMP image */
