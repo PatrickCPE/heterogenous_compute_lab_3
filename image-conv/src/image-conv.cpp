@@ -1,11 +1,11 @@
 //==============================================================
 // DPC++ Example
 //
-// Image Convoluton with DPC++
+// Image Rotation with DPC++
 //
-// Author: Yan Luo
+// Author: Pat Hoey
 //
-// Copyright ©  2020-
+// Copyright ©  2022-
 //
 // MIT License
 //
@@ -19,10 +19,12 @@
 
 using namespace sycl;
 
-// useful header files for image convolution
+// useful header files for image rotation
 #include "utils.h"
 #include "bmp-utils.h"
 #include "gold.h"
+
+#define PI 3.14159265
 
 
 using Duration = std::chrono::duration<double>;
@@ -41,70 +43,15 @@ class Timer {
 
 static const char* inputImagePath = "./Images/cat.bmp";
 
-static float gaussianBlurFilterFactor = 273.0f;
-static float gaussianBlurFilter[25] = {
-   1.0f,  4.0f,  7.0f,  4.0f, 1.0f,
-   4.0f, 16.0f, 26.0f, 16.0f, 4.0f,
-   7.0f, 26.0f, 41.0f, 26.0f, 7.0f,
-   4.0f, 16.0f, 26.0f, 16.0f, 4.0f,
-   1.0f,  4.0f,  7.0f,  4.0f, 1.0f};
-static const int gaussianBlurFilterWidth = 5;
-
-static float sharpenFilterFactor = 8.0f;
-static float sharpenFilter[25] = {
-    -1.0f, -1.0f, -1.0f, -1.0f, -1.0f,
-    -1.0f,  2.0f,  2.0f,  2.0f, -1.0f,
-    -1.0f,  2.0f,  8.0f,  2.0f, -1.0f,
-    -1.0f,  2.0f,  2.0f,  2.0f, -1.0f,
-    -1.0f, -1.0f, -1.0f, -1.0f, -1.0f};
-static const int sharpenFilterWidth = 5;
-
-static float edgeSharpenFilterFactor = 1.0f;
-static float edgeSharpenFilter[9] = {
-    1.0f,  1.0f, 1.0f,
-    1.0f, -7.0f, 1.0f,
-    1.0f,  1.0f, 1.0f};
-static const int edgeSharpenFilterWidth = 3;
-
-static float vertEdgeDetectFilterFactor = 1.0f;
-static float vertEdgeDetectFilter[25] = {
-     0,  0, -1.0f,  0,  0,
-     0,  0, -1.0f,  0,  0,
-     0,  0,  4.0f,  0,  0,
-     0,  0, -1.0f,  0,  0,
-     0,  0, -1.0f,  0,  0};
-static const int vertEdgeDetectFilterWidth = 5;
-
-static float embossFilterFactor = 1.0f;
-static float embossFilter[9] = {
-    2.0f,  0.0f,  0.0f,
-    0.0f, -1.0f,  0.0f,
-    0.0f,  0.0f, -1.0f};
-static const int embossFilterWidth = 3;
-
-enum filterList
-{
-    GAUSSIAN_BLUR,
-    SHARPEN,
-    EDGE_SHARPEN,
-    VERT_EDGE_DETECT,
-    EMBOSS,
-    FILTER_LIST_SIZE
-};
-//static const int filterSelection = VERT_EDGE_DETECT;
-//static const int filterSelection = GAUSSIAN_BLUR;
-static const int filterSelection = EDGE_SHARPEN;
-//static const int filterSelection = EMBOSS;
-
 #define IMAGE_SIZE (720*1080)
 constexpr size_t array_size = IMAGE_SIZE;
 typedef std::array<float, array_size> FloatArray;
 
 //************************************
-// Image Convolution in DPC++ on device: 
+// Image Rotation in DPC++ on device:
 //************************************
-void ImageConv_v1(queue &q, float *image_in, float *image_out, float *filter_in, 
-    const size_t FilterWidth, const size_t ImageRows, const size_t ImageCols) 
+void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
+                 float sin_value, const size_t ImageCols)
 {
 
     // We create buffers for the input and output data.
@@ -112,19 +59,9 @@ void ImageConv_v1(queue &q, float *image_in, float *image_out, float *filter_in,
     buffer<float, 1> image_in_buf(image_in, range<1>(ImageRows*ImageCols));
     buffer<float, 1> image_out_buf(image_out, range<1>(ImageRows*ImageCols));
 
-    //for(int i=0; i<ImageRows; i++) {
-    //  for(int j=0; j<ImageCols; j++)
-    //    std::cout << "image_out[" << i << "," << j << "]=" << (float *)image_out[i*ImageCols+j] << std::endl;
-    //}
 
     // Create the range object for the pixel data.
     range<2> num_items{ImageRows, ImageCols};
-
-    // Create buffers that hold the filter shared between the host and the devices.
-    buffer<float, 1> filter_buf(filter_in, range<1>(FilterWidth*FilterWidth));
-
-    /* Compute the filter width (intentionally truncate) */
-    int halfFilterWidth = (int)FilterWidth/2;
 
     // Submit a command group to the queue by a lambda function that contains the
     // data access permission and device computation (kernel).
@@ -136,57 +73,45 @@ void ImageConv_v1(queue &q, float *image_in, float *image_out, float *filter_in,
       // Another way to get access is to call get_access() member function 
       auto dstPtr = image_out_buf.get_access<access::mode::write>(h);
 
-      // create an accessor to the filter
-      auto f_acc = filter_buf.get_access<access::mode::read>(h);
-
-      // Use parallel_for to run image convolution in parallel on device. This
+      // Use parallel_for to run image rotation in parallel on device. This
       // executes the kernel.
       //    1st parameter is the number of work items.
       //    2nd parameter is the kernel, a lambda that specifies what to do per
       //    work item. The parameter of the lambda is the work item id.
       // DPC++ supports unnamed lambda kernel by default.
-      h.parallel_for(num_items, [=](id<2> item) 
-      { 
+      h.parallel_for(num_items, [=](id<2> item)
+      {
 
         // get row and col of the pixel assigned to this work item
         int row = item[0];
         int col = item[1];
 
-        // Half the width of the filter is needed for indexing memory later 
-        int halfWidth = (int)(FilterWidth/2);
+        // Declare center point of the image to rotate about
+        int x0, y0;
 
-        // Iterator for the filter */
-        int filterIdx = 0;
+        x0 = (int)ImageRows / 2;
+        y0 = (int)ImageCols / 2;
 
-        // Each work-item iterates around its local area based on the
-        // size of the filter 
+        // Declare initial points and new points
+        int x1, x2, y1, y2;
 
-        float sum = 0.0f;
+        // Get relative point for pixel this work item is handling
+        x1 = (float)row;
+        y1 = (float)col;
 
-        /* Apply the filter to the neighborhood */
-        for (int k = -halfFilterWidth; k <= halfFilterWidth; k++) 
-        {
-          for (int l = -halfFilterWidth; l <= halfFilterWidth; l++)
-          {
-              /* Indices used to access the image */
-              int r = row+k;
-              int c = col+l;
-              
-              /* Handle out-of-bounds locations by clamping to
-              * the border pixel */
-              r = (r < 0) ? 0 : r;
-              c = (c < 0) ? 0 : c;
-              r = (r >= ImageRows) ? ImageRows-1 : r;
-              c = (c >= ImageCols) ? ImageCols-1 : c;       
-              
-              sum += srcPtr[r*ImageCols+c] *
-                    f_acc[(k+halfFilterWidth)*FilterWidth + 
-                        (l+halfFilterWidth)];
-          }
+        // Calculate new values
+        x2 = cos_value * (x1 - x0) + sin_value * (y1 - y0);
+        y2 = (-1.0) * sin_value * (x1 - x0) + cos_value * (y1 - y0);
+
+        // If the new rotated pixel is within bounds copy the pixel from src to new spot in dest
+        if (((int)x2 >= 0) &&
+            ((int)x2 < ImageCols) &&
+            ((int)y2 >= 0) &&
+            ((int)ImageRows)){
+          /* Write the new pixel value */
+          dstPtr[ImageCols * y2 + x2] = srcPtr[ImageCols * row + col];
         }
-         
-        /* Write the new pixel value */
-        dstPtr[row*ImageCols+col] = sum;
+
 
       }
     );
@@ -214,10 +139,15 @@ int main() {
   int imageCols;
   int i;
 
-  /* Set the filter here */
-  cl_int filterWidth;
-  float filterFactor;
-  float *filter;
+  // Calculations for rotations
+  // https://www.cplusplus.com/reference/cmath/cos/ 
+  int theta = 0.5;
+  float cos_value, sin_value;
+
+  cos_value = cos(theta * PI / 180.0);
+  sin_value = sin(theta * PI / 180.0);
+
+
 
 #ifndef FPGA_PROFILE
   // Query about the platform
@@ -237,43 +167,7 @@ int main() {
   std::cout<<std::endl;
 #endif
 
-  // set conv filter
-  switch (filterSelection)
-  {
-    case GAUSSIAN_BLUR:
-      filterWidth = gaussianBlurFilterWidth;
-      filterFactor = gaussianBlurFilterFactor;
-      filter = gaussianBlurFilter;
-      break;
-    case SHARPEN:
-      filterWidth = sharpenFilterWidth;
-      filterFactor = sharpenFilterFactor;
-      filter = sharpenFilter;
-      break;
-    case EDGE_SHARPEN:
-      filterWidth = edgeSharpenFilterWidth;
-      filterFactor = edgeSharpenFilterFactor;
-      filter = edgeSharpenFilter;
-      break;
-    case VERT_EDGE_DETECT:
-      filterWidth = vertEdgeDetectFilterWidth;
-      filterFactor = vertEdgeDetectFilterFactor;
-      filter = vertEdgeDetectFilter;
-      break;
-    case EMBOSS:
-      filterWidth = embossFilterWidth;
-      filterFactor = embossFilterFactor;
-      filter = embossFilter;
-      break;
-    default:
-      printf("Invalid filter selection.\n");
-      return 1;
-  }
 
-  for (int i = 0; i < filterWidth*filterWidth; i++)
-  {
-    filter[i] = filter[i]/filterFactor;
-  }
 
   /* Read in the BMP image */
   hInputImage = readBmpFloat(inputImagePath, &imageRows, &imageCols);
@@ -294,8 +188,8 @@ int main() {
     std::cout << "Running on device: "
               << q.get_device().get_info<info::device::name>() << "\n";
 
-    // Image convolution in DPC++
-    ImageConv_v1(q, hInputImage, hOutputImage, filter, filterWidth, imageRows, imageCols);
+    // Image rotation in DPC++
+    ImageRot_v1(q, hInputImage, hOutputImage, cos_value, sin_value, imageRows, imageCols);
   } catch (exception const &e) {
     std::cout << "An exception is caught for image convolution.\n";
     std::terminate();
@@ -304,33 +198,9 @@ int main() {
   std::cout << t.elapsed().count() << " seconds\n";
 
   /* Save the output bmp */
-  printf("Output image saved as: cat-filtered.bmp\n");
-  writeBmpFloat(hOutputImage, "cat-filtered.bmp", imageRows, imageCols,
+  printf("Output image saved as: cat-rot.bmp\n");
+  writeBmpFloat(hOutputImage, "cat-rot.bmp", imageRows, imageCols,
           inputImagePath);
-
-#ifndef FPGA_PROFILE
-  /* Verify result */
-  float *refOutput = convolutionGoldFloat(hInputImage, imageRows, imageCols,
-    filter, filterWidth);
-
-  writeBmpFloat(refOutput, "cat-filtered-ref.bmp", imageRows, imageCols,
-          inputImagePath);
-
-  bool passed = true;
-  for (i = 0; i < imageRows*imageCols; i++) {
-    if (fabsf(refOutput[i]-hOutputImage[i]) > 0.001f) {
-        printf("%f %f\n", refOutput[i], hOutputImage[i]);
-        passed = false;
-    }
-  }
-  if (passed) {
-    printf("Passed!\n");
-    std::cout << "Image Convolution successfully completed on device.\n";
-  }
-  else {
-    printf("Failed!\n");
-  }
-#endif
 
   return 0;
 }
