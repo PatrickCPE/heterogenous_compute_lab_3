@@ -121,6 +121,7 @@ void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
           /* Write the new pixel value */
           dstPtr[ImageCols * y2 + x2] = srcPtr[ImageCols * row + col];
         }
+      }
     );
   });
 }
