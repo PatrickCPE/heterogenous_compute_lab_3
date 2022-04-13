@@ -51,7 +51,7 @@ typedef std::array<float, array_size> FloatArray;
 // Image Rotation in DPC++ on device:
 //************************************
 void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
-                 float sin_value, const size_t ImageCols)
+                 float sin_value, const size_t ImageRows, const size_t ImageCols)
 {
 
     // We create buffers for the input and output data.
