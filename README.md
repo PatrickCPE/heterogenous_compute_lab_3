@@ -10,7 +10,7 @@ cloud_login # Arria 10 with OneAPI
 tools_setup # Arria 10 with OneAPI
 
 git clone https://github.com/PatrickCPE/heterogenous_compute_lab_3
-cd heterogenous_compute_lab_3/build
+cd heterogenous_compute_lab_3/image-conv/build
 cmake ..
 
 # If making clean
