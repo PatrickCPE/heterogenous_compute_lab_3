@@ -147,11 +147,13 @@ int main() {
 
   // Calculations for rotations
   // https://www.cplusplus.com/reference/cmath/cos/ 
-  int theta = 0;
+  int theta = 10;
   float cos_value, sin_value;
 
   cos_value = cos(theta * PI / 180.0);
   sin_value = sin(theta * PI / 180.0);
+
+  printf("Theta:%d COS:%f SIN:%f\n", theta, cos_value, sin_value);
 
 
   /* Read in the BMP image */
