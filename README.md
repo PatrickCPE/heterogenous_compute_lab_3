@@ -6,7 +6,7 @@ https://github.com/ACANETS/eece-6540-labs
 # Usage
 ```shell
 ssh devcloud
-cloud_login # Arria 10 with OneAPI
+devcloud_login # Arria 10 with OneAPI
 tools_setup # Arria 10 with OneAPI
 
 git clone https://github.com/PatrickCPE/heterogenous_compute_lab_3
