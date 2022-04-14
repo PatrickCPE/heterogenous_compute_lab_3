@@ -91,8 +91,6 @@ void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
         // Declare center point of the image to rotate about
         int x0, y0;
 
-        //x0 = (int)ImageRows / 2;
-        //y0 = (int)ImageCols / 2;
 	x0 = 0;
 	y0 = 0;
 
@@ -102,8 +100,8 @@ void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
 	float x_rotated, y_rotated;
 
         // Get relative point for pixel this work item is handling
-        x1 = row;
-        y1 = col;
+        x1 = col;
+        y1 = row;
 
         // Calculate new values
         x_rotated = cos_value * (float)(x1 - x0) + sin_value * (float)(y1 - y0);
@@ -149,7 +147,7 @@ int main() {
 
   // Calculations for rotations
   // https://www.cplusplus.com/reference/cmath/cos/ 
-  int theta = -45;
+  int theta = 0;
   float cos_value, sin_value;
 
   cos_value = cos(theta * PI / 180.0);
