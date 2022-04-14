@@ -91,8 +91,10 @@ void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
         // Declare center point of the image to rotate about
         int x0, y0;
 
-        x0 = (int)ImageRows / 2;
-        y0 = (int)ImageCols / 2;
+        //x0 = (int)ImageRows / 2;
+        //y0 = (int)ImageCols / 2;
+	x0 = 0;
+	y0 = 0;
 
         // Declare initial points and new points
         int x1, x2, y1, y2;
