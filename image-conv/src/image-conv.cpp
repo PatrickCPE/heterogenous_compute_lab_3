@@ -149,7 +149,7 @@ int main() {
 
   // Calculations for rotations
   // https://www.cplusplus.com/reference/cmath/cos/ 
-  int theta = 45;
+  int theta = -45;
   float cos_value, sin_value;
 
   cos_value = cos(theta * PI / 180.0);
