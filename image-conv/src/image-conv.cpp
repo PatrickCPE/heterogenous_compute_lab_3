@@ -110,8 +110,8 @@ void ImageRot_v1(queue &q, float *image_in, float *image_out, float cos_value,
         y_rotated = (-1.0) * sin_value * (float)(x1 - x0) + cos_value * (float)(y1 - y0);
 
 	// Cast the floats to ints
-	x2 = (int)x_rotated;
-	y2 = (int)y_rotated;
+	y2 = (int)x_rotated;
+	x2 = (int)y_rotated;
 
         // If the new rotated pixel is within bounds copy the pixel from src to new spot in dest
         if ((x2 >= 0) &&
